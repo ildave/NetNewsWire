@@ -1,249 +1,112 @@
 //
 //  MasterTimelineCellLayout.swift
-//  NetNewsWire
+//  NetNewsWire-iOS
 //
-//  Created by Brent Simmons on 2/6/16.
-//  Copyright © 2016 Ranchero Software, LLC. All rights reserved.
+//  Created by Maurice Parker on 4/29/19.
+//  Copyright © 2019 Ranchero Software. All rights reserved.
 //
 
 import UIKit
-import RSCore
 
-struct MasterTimelineCellLayout {
-
-	static let cellPadding = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
-
-	static let feedColor = AppAssets.timelineTextSecondaryColor
-	static let feedNameFont = UIFont.systemFont(ofSize: UIFont.systemFontSize)
-
-	static let dateColor = AppAssets.timelineTextSecondaryColor
-	static let dateFont = UIFont.systemFont(ofSize: UIFont.systemFontSize, weight: UIFont.Weight.bold)
-	static let dateMarginBottom = CGFloat(integerLiteral: 1)
-
-	static let titleColor = AppAssets.timelineTextPrimaryColor
-	static let titleFont = UIFont.systemFont(ofSize: UIFont.systemFontSize, weight: .semibold)
-	static let titleBottomMargin = CGFloat(integerLiteral: 1)
-	static let titleNumberOfLines = 2
+protocol MasterTimelineCellLayout {
 	
-	static let textColor = AppAssets.timelineTextPrimaryColor
-	static let textFont = UIFont.systemFont(ofSize: UIFont.systemFontSize)
-
-	static let textOnlyFont = UIFont.systemFont(ofSize: UIFont.systemFontSize)
-	
-	static let unreadCircleDimension = CGFloat(integerLiteral: 8)
-	static let unreadCircleMarginRight = CGFloat(integerLiteral: 8)
-
-	static let starDimension = CGFloat(integerLiteral: 13)
-
-	static let avatarSize = CGSize(width: 48.0, height: 48.0)
-	static let avatarMarginLeft = CGFloat(integerLiteral: 8)
-	static let avatarCornerRadius = CGFloat(integerLiteral: 4)
-	
-	static let chevronWidth = CGFloat(integerLiteral: 28)
-
-	let width: CGFloat
-	let height: CGFloat
-	let feedNameRect: CGRect
-	let dateRect: CGRect
-	let titleRect: CGRect
-	let numberOfLinesForTitle: Int
-	let summaryRect: CGRect
-	let textRect: CGRect
-	let unreadIndicatorRect: CGRect
-	let starRect: CGRect
-	let avatarImageRect: CGRect
-	let paddingBottom: CGFloat
-	let separatorInsets: UIEdgeInsets
-	
-	init(width: CGFloat, height: CGFloat, feedNameRect: CGRect, dateRect: CGRect, titleRect: CGRect, numberOfLinesForTitle: Int, summaryRect: CGRect, textRect: CGRect, unreadIndicatorRect: CGRect, starRect: CGRect, avatarImageRect: CGRect, paddingBottom: CGFloat, separatorInsets: UIEdgeInsets) {
-		
-		self.width = width - MasterTimelineCellLayout.chevronWidth
-		self.feedNameRect = feedNameRect
-		self.dateRect = dateRect
-		self.titleRect = titleRect
-		self.numberOfLinesForTitle = numberOfLinesForTitle
-		self.summaryRect = summaryRect
-		self.textRect = textRect
-		self.unreadIndicatorRect = unreadIndicatorRect
-		self.starRect = starRect
-		self.avatarImageRect = avatarImageRect
-		self.paddingBottom = paddingBottom
-		self.separatorInsets = separatorInsets
-
-		if height > 0.1 {
-			self.height = height
-		} else {
-			self.height = [feedNameRect, dateRect, titleRect, summaryRect, textRect, unreadIndicatorRect, avatarImageRect].maxY() + paddingBottom
-		}
-		
-	}
-
-	init(width: CGFloat, height: CGFloat, cellData: MasterTimelineCellData, hasAvatar: Bool) {
-
-		let width = width - MasterTimelineCellLayout.chevronWidth
-		
-		// If height == 0.0, then height is calculated.
-
-		let showAvatar = hasAvatar && cellData.showAvatar
-		var textBoxRect = MasterTimelineCellLayout.rectForTextBox(cellData, showAvatar, width)
-
-		let (titleRect, numberOfLinesForTitle) = MasterTimelineCellLayout.rectForTitle(textBoxRect, cellData)
-		let summaryRect = numberOfLinesForTitle > 0 ? MasterTimelineCellLayout.rectForSummary(textBoxRect, titleRect, numberOfLinesForTitle, cellData) : CGRect.zero
-		let textRect = numberOfLinesForTitle > 0 ? CGRect.zero : MasterTimelineCellLayout.rectForText(textBoxRect, cellData)
-
-		var lastTextRect = titleRect
-		if numberOfLinesForTitle == 0 {
-			lastTextRect = textRect
-		} else if numberOfLinesForTitle == 1 {
-			if summaryRect.height > 0.1 {
-				lastTextRect = summaryRect
-			}
-		}
-		
-		let dateRect = MasterTimelineCellLayout.rectForDate(textBoxRect, lastTextRect, cellData)
-		let feedNameRect = MasterTimelineCellLayout.rectForFeedName(textBoxRect, dateRect, cellData)
-
-		textBoxRect.size.height = ceil([titleRect, summaryRect, textRect, dateRect, feedNameRect].maxY() - textBoxRect.origin.y)
-		let avatarImageRect = MasterTimelineCellLayout.rectForAvatar(cellData, showAvatar, textBoxRect, width, height)
-		let unreadIndicatorRect = MasterTimelineCellLayout.rectForUnreadIndicator(textBoxRect)
-		let starRect = MasterTimelineCellLayout.rectForStar(unreadIndicatorRect)
-
-		let paddingBottom = MasterTimelineCellLayout.cellPadding.bottom
-
-		let separatorInsets = UIEdgeInsets(top: 0, left: unreadIndicatorRect.maxX + MasterTimelineCellLayout.unreadCircleMarginRight, bottom: 0, right: 0)
-		
-		self.init(width: width, height: height, feedNameRect: feedNameRect, dateRect: dateRect, titleRect: titleRect, numberOfLinesForTitle: numberOfLinesForTitle, summaryRect: summaryRect, textRect: textRect, unreadIndicatorRect: unreadIndicatorRect, starRect: starRect, avatarImageRect: avatarImageRect, paddingBottom: paddingBottom, separatorInsets: separatorInsets)
-		
-	}
-
-	static func height(for width: CGFloat, cellData: MasterTimelineCellData) -> CGFloat {
-		let layout = MasterTimelineCellLayout(width: width, height: 0.0, cellData: cellData, hasAvatar: true)
-		return layout.height
-	}
+	var height: CGFloat {get}
+	var unreadIndicatorRect: CGRect {get}
+	var starRect: CGRect {get}
+	var avatarImageRect: CGRect {get}
+	var titleRect: CGRect {get}
+	var summaryRect: CGRect {get}
+	var feedNameRect: CGRect {get}
+	var dateRect: CGRect {get}
+	var separatorInsets: UIEdgeInsets {get}
 	
 }
 
-// MARK: - Calculate Rects
-
-private extension MasterTimelineCellLayout {
-
-	static func rectForTextBox(_ cellData: MasterTimelineCellData, _ showAvatar: Bool, _ width: CGFloat) -> CGRect {
-
-		// Returned height is a placeholder. Not needed when this is calculated.
-
-		let textBoxOriginX = MasterTimelineCellLayout.cellPadding.left + MasterTimelineCellLayout.unreadCircleDimension + MasterTimelineCellLayout.unreadCircleMarginRight
-		let textBoxMaxX = floor((width - MasterTimelineCellLayout.cellPadding.right) - (showAvatar ? MasterTimelineCellLayout.avatarSize.width + MasterTimelineCellLayout.avatarMarginLeft : 0.0))
-		let textBoxWidth = floor(textBoxMaxX - textBoxOriginX)
-		let textBoxRect = CGRect(x: textBoxOriginX, y: MasterTimelineCellLayout.cellPadding.top, width: textBoxWidth, height: 1000000)
-
-		return textBoxRect
-		
+extension MasterTimelineCellLayout {
+	
+	static func rectForUnreadIndicator(_ point: CGPoint) -> CGRect {
+		var r = CGRect.zero
+		r.size = CGSize(width: MasterTimelineDefaultCellLayout.unreadCircleDimension, height: MasterTimelineDefaultCellLayout.unreadCircleDimension)
+		r.origin.x = point.x
+		r.origin.y = point.y + 9
+		return r
 	}
-
-	static func rectForTitle(_ textBoxRect: CGRect, _ cellData: MasterTimelineCellData) -> (CGRect, Int) {
-
-		var r = textBoxRect
-
+	
+	
+	static func rectForStar(_ point: CGPoint) -> CGRect {
+		var r = CGRect.zero
+		r.size.width = MasterTimelineDefaultCellLayout.starDimension
+		r.size.height = MasterTimelineDefaultCellLayout.starDimension
+		r.origin.x = floor(point.x - ((MasterTimelineDefaultCellLayout.starDimension - MasterTimelineDefaultCellLayout.unreadCircleDimension) / 2.0))
+		r.origin.y = point.y + 5
+		return r
+	}
+	
+	static func rectForAvatar(_ point: CGPoint) -> CGRect {
+		var r = CGRect.zero
+		r.size = MasterTimelineDefaultCellLayout.avatarSize
+		r.origin = point
+		return r
+	}
+	
+	static func rectForTitle(_ cellData: MasterTimelineCellData, _ point: CGPoint, _ textAreaWidth: CGFloat) -> (CGRect, Int) {
+		
+		var r = CGRect.zero
 		if cellData.title.isEmpty {
-			r.size.height = 0
 			return (r, 0)
 		}
 		
-		let sizeInfo = MultilineUILabelSizer.size(for: cellData.title, font: MasterTimelineCellLayout.titleFont, numberOfLines: MasterTimelineCellLayout.titleNumberOfLines, width: Int(textBoxRect.width))
+		r.origin = point
+		
+		let sizeInfo = MultilineUILabelSizer.size(for: cellData.title, font: MasterTimelineDefaultCellLayout.titleFont, numberOfLines: cellData.numberOfLines, width: Int(textAreaWidth))
+		
+		r.size.width = textAreaWidth
 		r.size.height = sizeInfo.size.height
 		if sizeInfo.numberOfLinesUsed < 1 {
 			r.size.height = 0
 		}
+		
 		return (r, sizeInfo.numberOfLinesUsed)
+		
 	}
-
-	static func rectForSummary(_ textBoxRect: CGRect, _ titleRect: CGRect, _ titleNumberOfLines: Int, _ cellData: MasterTimelineCellData) -> CGRect {
-
-		if titleNumberOfLines >= MasterTimelineCellLayout.titleNumberOfLines || cellData.text.isEmpty {
-			return CGRect.zero
-		}
-
-		return rectOfLineBelow(titleRect, titleRect, 0, cellData.text, MasterTimelineCellLayout.textFont)
-	}
-
-	static func rectForText(_ textBoxRect: CGRect, _ cellData: MasterTimelineCellData) -> CGRect {
-
-		var r = textBoxRect
-
-		if cellData.text.isEmpty {
-			r.size.height = 0
+	
+	static func rectForSummary(_ cellData: MasterTimelineCellData, _ point: CGPoint, _ textAreaWidth: CGFloat, _ linesUsed: Int) -> CGRect {
+		
+		let linesLeft = cellData.numberOfLines - linesUsed
+		
+		var r = CGRect.zero
+		if cellData.summary.isEmpty || linesLeft < 1 {
 			return r
 		}
-
-		let sizeInfo = MultilineUILabelSizer.size(for: cellData.text, font: MasterTimelineCellLayout.textOnlyFont, numberOfLines: MasterTimelineCellLayout.titleNumberOfLines, width: Int(textBoxRect.width))
+		
+		r.origin = point
+		
+		let sizeInfo = MultilineUILabelSizer.size(for: cellData.summary, font: MasterTimelineDefaultCellLayout.summaryFont, numberOfLines: linesLeft, width: Int(textAreaWidth))
+		
+		r.size.width = textAreaWidth
 		r.size.height = sizeInfo.size.height
 		if sizeInfo.numberOfLinesUsed < 1 {
 			r.size.height = 0
 		}
-		return r
-	}
-
-	static func rectForDate(_ textBoxRect: CGRect, _ rectAbove: CGRect, _ cellData: MasterTimelineCellData) -> CGRect {
-
-		return rectOfLineBelow(textBoxRect, rectAbove, MasterTimelineCellLayout.titleBottomMargin, cellData.dateString, MasterTimelineCellLayout.dateFont)
-	}
-
-	static func rectForFeedName(_ textBoxRect: CGRect, _ dateRect: CGRect, _ cellData: MasterTimelineCellData) -> CGRect {
-
-		if !cellData.showFeedName {
-			return CGRect.zero
-		}
-
-		return rectOfLineBelow(textBoxRect, dateRect, MasterTimelineCellLayout.dateMarginBottom, cellData.feedName, MasterTimelineCellLayout.feedNameFont)
-	}
-
-	static func rectOfLineBelow(_ textBoxRect: CGRect, _ rectAbove: CGRect, _ topMargin: CGFloat, _ value: String, _ font: UIFont) -> CGRect {
-
-		let textFieldSize = SingleLineUILabelSizer.size(for: value, font: font)
-		var r = CGRect.zero
-		r.size = textFieldSize
-		r.origin.y = rectAbove.maxY + topMargin
-		r.origin.x = textBoxRect.origin.x
-
-		var width = textFieldSize.width
-		width = min(width, textBoxRect.size.width)
-		width = max(width, 0.0)
-		r.size.width = width
-
-		return r
-	}
-
-	static func rectForUnreadIndicator(_ titleRect: CGRect) -> CGRect {
-
-		var r = CGRect.zero
-		r.size = CGSize(width: MasterTimelineCellLayout.unreadCircleDimension, height: MasterTimelineCellLayout.unreadCircleDimension)
-		r.origin.x = MasterTimelineCellLayout.cellPadding.left
-		r.origin.y = titleRect.minY + 6
+		
 		return r
 		
 	}
 
-	static func rectForStar(_ unreadIndicatorRect: CGRect) -> CGRect {
-
+	static func rectForFeedName(_ cellData: MasterTimelineCellData, _ point: CGPoint, _ textAreaWidth: CGFloat) -> CGRect {
+		
 		var r = CGRect.zero
-		r.size.width = MasterTimelineCellLayout.starDimension
-		r.size.height = MasterTimelineCellLayout.starDimension
-		r.origin.x = floor(unreadIndicatorRect.origin.x - ((MasterTimelineCellLayout.starDimension - MasterTimelineCellLayout.unreadCircleDimension) / 2.0))
-		r.origin.y = unreadIndicatorRect.origin.y - 4.0
-		return r
-	}
-
-	static func rectForAvatar(_ cellData: MasterTimelineCellData, _ showAvatar: Bool, _ textBoxRect: CGRect, _ width: CGFloat, _ height: CGFloat) -> CGRect {
-
-		var r = CGRect.zero
-		if !showAvatar {
-			return r
+		r.origin = point
+		
+		let size = SingleLineUILabelSizer.size(for: cellData.feedName, font: MasterTimelineDefaultCellLayout.feedNameFont)
+		r.size = size
+		
+		if r.size.width > textAreaWidth {
+			r.size.width = textAreaWidth
 		}
 		
-		r.size = MasterTimelineCellLayout.avatarSize
-		r.origin.x = (width - MasterTimelineCellLayout.cellPadding.right) - r.size.width
-		r.origin.y = textBoxRect.origin.y + 4.0
-
 		return r
+		
 	}
+	
 }

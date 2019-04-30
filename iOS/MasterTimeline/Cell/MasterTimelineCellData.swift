@@ -12,7 +12,7 @@ import Articles
 struct MasterTimelineCellData {
 	
 	let title: String
-	let text: String
+	let summary: String
 	let dateString: String
 	let feedName: String
 	let showFeedName: Bool
@@ -21,11 +21,12 @@ struct MasterTimelineCellData {
 	let featuredImage: UIImage? // image from within the article
 	let read: Bool
 	let starred: Bool
+	let numberOfLines: Int
 
-	init(article: Article, showFeedName: Bool, feedName: String?, avatar: UIImage?, showAvatar: Bool, featuredImage: UIImage?) {
+	init(article: Article, showFeedName: Bool, feedName: String?, avatar: UIImage?, showAvatar: Bool, featuredImage: UIImage?, numberOfLines: Int) {
 
 		self.title = TimelineStringFormatter.truncatedTitle(article)
-		self.text = TimelineStringFormatter.truncatedSummary(article)
+		self.summary = TimelineStringFormatter.truncatedSummary(article)
 
 		self.dateString = TimelineStringFormatter.dateString(article.logicalDatePublished)
 
@@ -44,11 +45,13 @@ struct MasterTimelineCellData {
 		
 		self.read = article.status.read
 		self.starred = article.status.starred
+		self.numberOfLines = numberOfLines
+		
 	}
 
 	init() { //Empty
 		self.title = ""
-		self.text = ""
+		self.summary = ""
 		self.dateString = ""
 		self.feedName = ""
 		self.showFeedName = false
@@ -57,6 +60,7 @@ struct MasterTimelineCellData {
 		self.featuredImage = nil
 		self.read = true
 		self.starred = false
+		self.numberOfLines = 0
 	}
 	
 }

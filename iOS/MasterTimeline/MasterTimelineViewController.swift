@@ -13,13 +13,9 @@ import Articles
 
 class MasterTimelineViewController: ProgressTableViewController, UndoableCommandRunner {
 
-	private var rowHeightWithFeedName: CGFloat = 0.0
-	private var rowHeightWithoutFeedName: CGFloat = 0.0
+	private static var minAvatarDimension: CGFloat = 20.0
+	private var numberOfTextLines = 0
 	
-	private var currentRowHeight: CGFloat {
-		return navState?.showFeedNames ?? false ? rowHeightWithFeedName : rowHeightWithoutFeedName
-	}
-
 	@IBOutlet weak var markAllAsReadButton: UIBarButtonItem!
 	@IBOutlet weak var firstUnreadButton: UIBarButtonItem!
 	
@@ -33,7 +29,6 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 	override func viewDidLoad() {
 		
 		super.viewDidLoad()
-		updateRowHeights()
 		
 		NotificationCenter.default.addObserver(self, selector: #selector(unreadCountDidChange(_:)), name: .UnreadCountDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
@@ -41,14 +36,19 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 		NotificationCenter.default.addObserver(self, selector: #selector(avatarDidBecomeAvailable(_:)), name: .AvatarDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(imageDidBecomeAvailable(_:)), name: .ImageDidBecomeAvailable, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(imageDidBecomeAvailable(_:)), name: .FaviconDidBecomeAvailable, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: nil)
 
 		NotificationCenter.default.addObserver(self, selector: #selector(articlesReinitialized(_:)), name: .ArticlesReinitialized, object: navState)
 		NotificationCenter.default.addObserver(self, selector: #selector(articleDataDidChange(_:)), name: .ArticleDataDidChange, object: navState)
 		NotificationCenter.default.addObserver(self, selector: #selector(articlesDidChange(_:)), name: .ArticlesDidChange, object: navState)
 		NotificationCenter.default.addObserver(self, selector: #selector(articleSelectionDidChange(_:)), name: .ArticleSelectionDidChange, object: navState)
+		NotificationCenter.default.addObserver(self, selector: #selector(contentSizeCategoryDidChange), name: UIContentSizeCategory.didChangeNotification, object: nil)
 
 		refreshControl = UIRefreshControl()
 		refreshControl!.addTarget(self, action: #selector(refreshAccounts(_:)), for: .valueChanged)
+		
+		numberOfTextLines = AppDefaults.timelineNumberOfLines
+		resetEstimatedRowHeight()
 		
 		resetUI()
 		
@@ -125,23 +125,6 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 			return nil
 		}
 		
-		// Set up the star action
-		let starTitle = article.status.starred ?
-			NSLocalizedString("Unstar", comment: "Unstar") :
-			NSLocalizedString("Star", comment: "Star")
-		
-		let starAction = UIContextualAction(style: .normal, title: starTitle) { [weak self] (action, view, completionHandler) in
-			guard let undoManager = self?.undoManager,
-				let markReadCommand = MarkStatusCommand(initialArticles: [article], markingStarred: !article.status.starred, undoManager: undoManager) else {
-					return
-			}
-			self?.runCommand(markReadCommand)
-			completionHandler(true)
-		}
-		
-		starAction.image = AppAssets.starClosedImage
-		starAction.backgroundColor = AppAssets.starColor
-		
 		// Set up the read action
 		let readTitle = article.status.read ?
 			NSLocalizedString("Unread", comment: "Unread") :
@@ -159,7 +142,24 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 		readAction.image = AppAssets.circleClosedImage
 		readAction.backgroundColor = AppAssets.timelineUnreadCircleColor
 		
-		let configuration = UISwipeActionsConfiguration(actions: [starAction, readAction])
+		// Set up the star action
+		let starTitle = article.status.starred ?
+			NSLocalizedString("Unstar", comment: "Unstar") :
+			NSLocalizedString("Star", comment: "Star")
+		
+		let starAction = UIContextualAction(style: .normal, title: starTitle) { [weak self] (action, view, completionHandler) in
+			guard let undoManager = self?.undoManager,
+				let markReadCommand = MarkStatusCommand(initialArticles: [article], markingStarred: !article.status.starred, undoManager: undoManager) else {
+					return
+			}
+			self?.runCommand(markReadCommand)
+			completionHandler(true)
+		}
+		
+		starAction.image = AppAssets.starClosedImage
+		starAction.backgroundColor = AppAssets.starColor
+		
+		let configuration = UISwipeActionsConfiguration(actions: [readAction, starAction])
 		return configuration
 		
 	}
@@ -248,6 +248,14 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 		}
 	}
 
+	@objc func userDefaultsDidChange(_ note: Notification) {
+		if numberOfTextLines != AppDefaults.timelineNumberOfLines {
+			numberOfTextLines = AppDefaults.timelineNumberOfLines
+			resetEstimatedRowHeight()
+			tableView.reloadData()
+		}
+	}
+	
 	@objc func articlesReinitialized(_ note: Notification) {
 		resetUI()
 	}
@@ -274,6 +282,10 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 		
 	}
 
+	@objc func contentSizeCategoryDidChange(_ note: Notification) {
+		tableView.reloadData()
+	}
+	
 	// MARK: Reloading
 	
 	@objc func reloadAllVisibleCells() {
@@ -313,7 +325,7 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 	
 	// MARK: Cell Configuring
 
-	private func calculateRowHeight(showingFeedNames: Bool) -> CGFloat {
+	private func resetEstimatedRowHeight() {
 		
 		let longTitle = "But I must explain to you how all this mistaken idea of denouncing pleasure and praising pain was born and I will give you a complete account of the system, and expound the actual teachings of the great explorer of the truth, the master-builder of human happiness. No one rejects, dislikes, or avoids pleasure itself, because it is pleasure, but because those who do not know how to pursue pleasure rationally encounter consequences that are extremely painful. Nor again is there anyone who loves or pursues or desires to obtain pain of itself, because it is pain, but because occasionally circumstances occur in which toil and pain can procure him some great pleasure. To take a trivial example, which of us ever undertakes laborious physical exercise, except to obtain some advantage from it? But who has any right to find fault with a man who chooses to enjoy a pleasure that has no annoying consequences, or one who avoids a pain that produces no resultant pleasure?"
 		
@@ -321,16 +333,16 @@ class MasterTimelineViewController: ProgressTableViewController, UndoableCommand
 		let status = ArticleStatus(articleID: prototypeID, read: false, starred: false, userDeleted: false, dateArrived: Date())
 		let prototypeArticle = Article(accountID: prototypeID, articleID: prototypeID, feedID: prototypeID, uniqueID: prototypeID, title: longTitle, contentHTML: nil, contentText: nil, url: nil, externalURL: nil, summary: nil, imageURL: nil, bannerImageURL: nil, datePublished: nil, dateModified: nil, authors: nil, attachments: nil, status: status)
 		
-		let prototypeCellData = MasterTimelineCellData(article: prototypeArticle, showFeedName: showingFeedNames, feedName: "Prototype Feed Name", avatar: nil, showAvatar: false, featuredImage: nil)
-		let height = MasterTimelineCellLayout.height(for: 100, cellData: prototypeCellData)
-		return height
+		let prototypeCellData = MasterTimelineCellData(article: prototypeArticle, showFeedName: true, feedName: "Prototype Feed Name", avatar: nil, showAvatar: false, featuredImage: nil, numberOfLines: numberOfTextLines)
 		
-	}
-	
-	private func updateRowHeights() {
-		rowHeightWithFeedName = calculateRowHeight(showingFeedNames: true)
-		rowHeightWithoutFeedName = calculateRowHeight(showingFeedNames: false)
-		updateTableViewRowHeight()
+		if UIApplication.shared.preferredContentSizeCategory.isAccessibilityCategory {
+			let layout = MasterTimelineAccessibilityCellLayout(width: tableView.bounds.width, insets: tableView.safeAreaInsets, cellData: prototypeCellData)
+			tableView.estimatedRowHeight = layout.height
+		} else {
+			let layout = MasterTimelineDefaultCellLayout(width: tableView.bounds.width, insets: tableView.safeAreaInsets, cellData: prototypeCellData)
+			tableView.estimatedRowHeight = layout.height
+		}
+		
 	}
 	
 }
@@ -346,7 +358,6 @@ private extension MasterTimelineViewController {
 
 	func resetUI() {
 		
-		updateTableViewRowHeight()
 		title = navState?.timelineName
 		navigationController?.title = navState?.timelineName
 		
@@ -365,15 +376,12 @@ private extension MasterTimelineViewController {
 	
 	func configureTimelineCell(_ cell: MasterTimelineTableViewCell, article: Article) {
 		
-		var avatar = avatarFor(article)
-		if avatar == nil, let feed = article.feed {
-			avatar = appDelegate.faviconDownloader.favicon(for: feed)
-		}
+		let avatar = avatarFor(article)
 		let featuredImage = featuredImageFor(article)
 		
 		let showFeedNames = navState?.showFeedNames ?? false
-		let showAvatars = navState?.showAvatars ?? false
-		cell.cellData = MasterTimelineCellData(article: article, showFeedName: showFeedNames, feedName: article.feed?.nameForDisplay, avatar: avatar, showAvatar: showAvatars, featuredImage: featuredImage)
+		let showAvatar = navState?.showAvatars ?? false && avatar != nil
+		cell.cellData = MasterTimelineCellData(article: article, showFeedName: showFeedNames, feedName: article.feed?.nameForDisplay, avatar: avatar, showAvatar: showAvatar, featuredImage: featuredImage, numberOfLines: numberOfTextLines)
 		
 	}
 	
@@ -385,7 +393,7 @@ private extension MasterTimelineViewController {
 		
 		if let authors = article.authors {
 			for author in authors {
-				if let image = avatarForAuthor(author) {
+				if let image = avatarForAuthor(author), imagePassesQualityAssurance(image) {
 					return image
 				}
 			}
@@ -395,8 +403,27 @@ private extension MasterTimelineViewController {
 			return nil
 		}
 		
-		return appDelegate.feedIconDownloader.icon(for: feed)
+		let feedIconImage = appDelegate.feedIconDownloader.icon(for: feed)
+		if imagePassesQualityAssurance(feedIconImage) {
+			return feedIconImage
+		}
 		
+		if let feed = article.feed, let faviconImage = appDelegate.faviconDownloader.favicon(for: feed) {
+			if imagePassesQualityAssurance(faviconImage) {
+				return faviconImage
+			}
+		}
+		
+		return FaviconGenerator.favicon(feed)
+		
+	}
+	
+	func imagePassesQualityAssurance(_ image: UIImage?) -> Bool {
+		let minDimension = MasterTimelineViewController.minAvatarDimension * RSScreen.mainScreenScale
+		if let image = image, image.size.height >= minDimension, image.size.width >= minDimension {
+			return true
+		}
+		return false
 	}
 	
 	func avatarForAuthor(_ author: Author) -> UIImage? {
@@ -412,11 +439,6 @@ private extension MasterTimelineViewController {
 
 	func queueReloadVisableCells() {
 		CoalescingQueue.standard.add(self, #selector(reloadAllVisibleCells))
-	}
-
-	func updateTableViewRowHeight() {
-		tableView.rowHeight = currentRowHeight
-		tableView.estimatedRowHeight = currentRowHeight
 	}
 
 	func performBlockAndRestoreSelection(_ block: (() -> Void)) {

@@ -12,11 +12,12 @@ import RSCore
 class MasterTimelineTableViewCell: UITableViewCell {
 	
 	private let titleView = MasterTimelineTableViewCell.multiLineUILabel()
-	private let summaryView = MasterTimelineTableViewCell.singleLineUILabel()
-	private let textView = MasterTimelineTableViewCell.multiLineUILabel()
+	private let summaryView = MasterTimelineTableViewCell.multiLineUILabel()
 	private let unreadIndicatorView = MasterUnreadIndicatorView(frame: CGRect.zero)
 	private let dateView = MasterTimelineTableViewCell.singleLineUILabel()
 	private let feedNameView = MasterTimelineTableViewCell.singleLineUILabel()
+	
+	private var layout: MasterTimelineCellLayout?
 	
 	private lazy var avatarImageView: UIImageView = {
 		let imageView = NonIntrinsicImageView(image: AppAssets.feedImage)
@@ -26,10 +27,6 @@ class MasterTimelineTableViewCell: UITableViewCell {
 	
 	private lazy var starView = {
 		return NonIntrinsicImageView(image: AppAssets.timelineStarImage)
-	}()
-	
-	private lazy var textFields = {
-		return [self.dateView, self.feedNameView, self.titleView, self.summaryView, self.textView]
 	}()
 	
 	var cellData: MasterTimelineCellData! {
@@ -49,23 +46,30 @@ class MasterTimelineTableViewCell: UITableViewCell {
 		}
 	}
 	
+	override func sizeThatFits(_ size: CGSize) -> CGSize {
+		if layout == nil {
+			layout = updatedLayout()
+		}
+		return CGSize(width: bounds.width, height: layout!.height)
+	}
+
 	override func layoutSubviews() {
 		
 		super.layoutSubviews()
 		
-		let layout = updatedLayout()
-		
-		setFrame(for: titleView, rect: layout.titleRect)
-		setFrame(for: summaryView, rect: layout.summaryRect)
-		setFrame(for: textView, rect: layout.textRect)
-		
-		dateView.setFrameIfNotEqual(layout.dateRect)
-		unreadIndicatorView.setFrameIfNotEqual(layout.unreadIndicatorRect)
-		feedNameView.setFrameIfNotEqual(layout.feedNameRect)
-		avatarImageView.setFrameIfNotEqual(layout.avatarImageRect)
-		starView.setFrameIfNotEqual(layout.starRect)
-		
-		separatorInset = layout.separatorInsets
+		if layout == nil {
+			layout = updatedLayout()
+		}
+
+		unreadIndicatorView.setFrameIfNotEqual(layout!.unreadIndicatorRect)
+		starView.setFrameIfNotEqual(layout!.starRect)
+		avatarImageView.setFrameIfNotEqual(layout!.avatarImageRect)
+		setFrame(for: titleView, rect: layout!.titleRect)
+		setFrame(for: summaryView, rect: layout!.summaryRect)
+		feedNameView.setFrameIfNotEqual(layout!.feedNameRect)
+		dateView.setFrameIfNotEqual(layout!.dateRect)
+
+		separatorInset = layout!.separatorInsets
 		
 	}
 	
@@ -79,6 +83,7 @@ private extension MasterTimelineTableViewCell {
 		let label = NonIntrinsicLabel()
 		label.lineBreakMode = .byTruncatingTail
 		label.allowsDefaultTighteningForTruncation = false
+		label.adjustsFontForContentSizeCategory = true
 		return label
 	}
 	
@@ -87,6 +92,7 @@ private extension MasterTimelineTableViewCell {
 		label.numberOfLines = 0
 		label.lineBreakMode = .byWordWrapping
 		label.allowsDefaultTighteningForTruncation = false
+		label.adjustsFontForContentSizeCategory = true
 		return label
 	}
 	
@@ -113,7 +119,6 @@ private extension MasterTimelineTableViewCell {
 		addAccessoryView()
 		addSubviewAtInit(titleView, hidden: false)
 		addSubviewAtInit(summaryView, hidden: true)
-		addSubviewAtInit(textView, hidden: true)
 		addSubviewAtInit(unreadIndicatorView, hidden: true)
 		addSubviewAtInit(dateView, hidden: false)
 		addSubviewAtInit(feedNameView, hidden: true)
@@ -133,31 +138,28 @@ private extension MasterTimelineTableViewCell {
 	}
 
 	func updatedLayout() -> MasterTimelineCellLayout {
-		
-		return MasterTimelineCellLayout(width: bounds.width, height: bounds.height, cellData: cellData, hasAvatar: avatarImageView.image != nil)
+		if UIApplication.shared.preferredContentSizeCategory.isAccessibilityCategory {
+			return MasterTimelineAccessibilityCellLayout(width: bounds.width, insets: safeAreaInsets, cellData: cellData)
+		} else {
+			return MasterTimelineDefaultCellLayout(width: bounds.width, insets: safeAreaInsets, cellData: cellData)
+		}
 	}
 	
 	func updateTitleView() {
-		titleView.font = MasterTimelineCellLayout.titleFont
-		titleView.textColor = MasterTimelineCellLayout.titleColor
+		titleView.font = MasterTimelineDefaultCellLayout.titleFont
+		titleView.textColor = MasterTimelineDefaultCellLayout.titleColor
 		updateTextFieldText(titleView, cellData?.title)
 	}
 	
 	func updateSummaryView() {
-		summaryView.font = MasterTimelineCellLayout.textFont
-		summaryView.textColor = MasterTimelineCellLayout.textColor
-		updateTextFieldText(summaryView, cellData?.text)
-	}
-	
-	func updateTextView() {
-		textView.font = MasterTimelineCellLayout.textFont
-		textView.textColor = MasterTimelineCellLayout.textColor
-		updateTextFieldText(textView, cellData?.text)
+		summaryView.font = MasterTimelineDefaultCellLayout.summaryFont
+		summaryView.textColor = MasterTimelineDefaultCellLayout.summaryColor
+		updateTextFieldText(summaryView, cellData?.summary)
 	}
 	
 	func updateDateView() {
-		dateView.font = MasterTimelineCellLayout.dateFont
-		dateView.textColor = MasterTimelineCellLayout.dateColor
+		dateView.font = MasterTimelineDefaultCellLayout.dateFont
+		dateView.textColor = MasterTimelineDefaultCellLayout.dateColor
 		updateTextFieldText(dateView, cellData.dateString)
 	}
 	
@@ -173,8 +175,8 @@ private extension MasterTimelineTableViewCell {
 		
 		if cellData.showFeedName {
 			showView(feedNameView)
-			feedNameView.font = MasterTimelineCellLayout.feedNameFont
-			feedNameView.textColor = MasterTimelineCellLayout.feedColor
+			feedNameView.font = MasterTimelineDefaultCellLayout.feedNameFont
+			feedNameView.textColor = MasterTimelineDefaultCellLayout.feedColor
 			updateTextFieldText(feedNameView, cellData.feedName)
 		} else {
 			hideView(feedNameView)
@@ -191,18 +193,16 @@ private extension MasterTimelineTableViewCell {
 	
 	func updateAvatar() {
 		
-		// The avatar should be bigger than a favicon. They’re too small; they look weird.
-		let minDimension = 22.0 * RSScreen.mainScreenScale
-		guard let image = cellData.avatar, cellData.showAvatar, image.size.height >= minDimension, image.size.width >= minDimension else {
+		guard let image = cellData.avatar, cellData.showAvatar else {
 			makeAvatarEmpty()
 			return
 		}
 
 		showView(avatarImageView)
-		avatarImageView.layer.cornerRadius = MasterTimelineCellLayout.avatarCornerRadius
+		avatarImageView.layer.cornerRadius = MasterTimelineDefaultCellLayout.avatarCornerRadius
 		avatarImageView.clipsToBounds = true
 		
-		if avatarImageView.image !== image {
+		if avatarImageView.image !== cellData.avatar {
 			avatarImageView.image = image
 			setNeedsLayout()
 		}
@@ -234,9 +234,9 @@ private extension MasterTimelineTableViewCell {
 	}
 	
 	func updateSubviews() {
+		layout = nil
 		updateTitleView()
 		updateSummaryView()
-		updateTextView()
 		updateDateView()
 		updateFeedNameView()
 		updateUnreadIndicator()
